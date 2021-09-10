@@ -1,0 +1,45 @@
+---
+# tasks file for el-samba-share
+- name: Pre | set sharepath
+  set_fact:
+    sharepath: "{{ storagepath }}/sharename"
+
+- name: Configure | Create Directory for "{{ sharepath }}"
+  ansible.builtin.file:
+    path: "{{ sharepath }}"
+    state: directory
+
+- name: Configure | Share | smb.conf
+  ansible.builtin.blockinfile:
+    path: /etc/samba/smb.conf
+    marker: "# {mark} Share {{ sharename }}"
+    block: |
+      [{{ sharename }}]
+      comment = {{ sharename }} Share
+      path = {{ sharepath }}
+      public = no
+      writable = yes
+      create mask = 0770
+      force create mode = 0770
+      directory mask = 770
+      force group = {{ accessgroup }}
+      guest ok = no
+      vfs objects = fruit streams_xattr
+      valid users = @"{{ accessgroup }}"
+  notify: restart_samba
+
+- name: Set acl on share
+  ansible.builtin.file:
+    path: "{{ sharepath }}"
+    owner: administrator
+    group: "{{ accessgroup }}"
+    mode: '0770'
+
+- name: Set SELinux for share chcon
+  command: chcon -R -t samba_share_t "{{ sharepath }}"
+
+- name: Allow Samba to modify files in share
+  community.general.sefcontext:
+    target: '{{ sharepath }}(/.*)?'
+    setype: samba_share_t
+    state: present

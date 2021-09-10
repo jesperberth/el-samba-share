@@ -1,0 +1,6 @@
+---
+# handlers file for el-samba-share
+- name: restart_samba
+  service:
+    name: smb
+    state: restarted
